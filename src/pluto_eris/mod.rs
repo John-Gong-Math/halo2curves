@@ -8,8 +8,10 @@
 mod curve;
 mod engine;
 mod fields;
+mod glv;
 
 pub use curve::*;
 pub use engine::*;
 pub use fields::fp::*;
 pub use fields::fq::*;
+pub use glv::*;

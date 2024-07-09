@@ -1,7 +1,5 @@
 use super::G1;
 use crate::arithmetic::mul_896;
-use crate::arithmetic::CurveEndo;
-use crate::arithmetic::EndoParameters;
 use crate::ff::WithSmallOrderMulGroup;
 use crate::group::{Curve, Group};
 use crate::pluto_eris::Fq;
@@ -9,7 +7,7 @@ use crate::CurveExt;
 use ethnum::U256;
 use ff::{Field, PrimeField};
 use rand_core::OsRng;
-use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
+use subtle::{Choice, ConditionallySelectable};
 
 const GAMMA1: [u64; 7] = [
     0xdf52222a6a19d56d,
@@ -68,26 +66,26 @@ fn decompose_scalar(k: &Fq) -> (U256, bool, U256, bool) {
     let get_low_high_224 = |e: &Fq| {
         let repr = e.to_repr();
         let repr = repr.as_ref();
-        let mut low_224: [u8; 32] = [0; 32];
-        let (one, two) = low_224.split_at_mut(28);
         let padding: [u8; 4] = [0; 4];
+
+        let mut low: [u8; 32] = [0; 32];
+        let (one, two) = low.split_at_mut(28);
         one.copy_from_slice(&repr[0..28]);
         two.copy_from_slice(&padding);
-        let low_224 = U256::from_le_bytes(low_224);
+        let low = U256::from_le_bytes(low);
 
-        let mut high_224: [u8; 32] = [0; 32];
-        let (one, two) = high_224.split_at_mut(28);
-
+        let mut high: [u8; 32] = [0; 32];
+        let (one, two) = high.split_at_mut(28);
         one.copy_from_slice(&repr[28..56]);
         two.copy_from_slice(&padding);
-        let high_224 = U256::from_le_bytes(high_224);
+        let high = U256::from_le_bytes(high);
 
-        (low_224, high_224)
+        (low, high)
     };
 
     let is_neg = |e: &Fq| {
-        let (_, high_224) = get_low_high_224(e);
-        if high_224 != 0 {
+        let (_, high) = get_low_high_224(e);
+        if high != 0 {
             return true;
         }
 
@@ -100,7 +98,7 @@ fn decompose_scalar(k: &Fq) -> (U256, bool, U256, bool) {
     let c1 = [c1[7], c1[8], c1[9], c1[10], c1[11], c1[12], c1[13]];
     let c2 = [c2[7], c2[8], c2[9], c2[10], c2[11], c2[12], c2[13]];
     let q1 = mul_896(c1, B1);
-    let q2 = mul_896(c2, B2);
+    let q2: [u64; 14] = mul_896(c2, B2);
     let q1 = Fq::from_raw([q1[0], q1[1], q1[2], q1[3], q1[4], q1[5], q1[6]]);
     let q2 = Fq::from_raw([q2[0], q2[1], q2[2], q2[3], q2[4], q2[5], q2[6]]);
     let k2 = q2 - q1;
@@ -120,7 +118,7 @@ fn decompose_scalar(k: &Fq) -> (U256, bool, U256, bool) {
 
 #[cfg(test)]
 impl G1 {
-    fn mul_U256(&self, scalar: U256) -> Self {
+    fn mul_u256(&self, scalar: U256) -> Self {
         let mut acc = Self::identity();
         for bit in scalar
             .to_be_bytes()
@@ -141,8 +139,8 @@ impl G1 {
         let (k1, k1_neg, k2, k2_neg) = decompose_scalar(s);
 
         // should msm this
-        let p1 = self.mul_U256(k1);
-        let p2 = self.mul_U256(k2).endo();
+        let p1 = self.mul_u256(k1);
+        let p2 = self.mul_u256(k2).endo();
 
         if k1_neg & k2_neg {
             p2 - p1

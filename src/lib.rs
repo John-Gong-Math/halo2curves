@@ -12,6 +12,9 @@ pub mod pluto_eris;
 pub mod secp256k1;
 pub mod secp256r1;
 pub mod secq256k1;
+pub mod bls12_381;
+pub mod jubjub;
+mod util;
 
 #[macro_use]
 mod derive;

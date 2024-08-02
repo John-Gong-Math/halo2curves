@@ -8,11 +8,13 @@ pub mod serde;
 pub mod bls12381;
 pub mod bn256;
 pub mod grumpkin;
+pub mod jubjub;
 pub mod pasta;
 pub mod pluto_eris;
 pub mod secp256k1;
 pub mod secp256r1;
 pub mod secq256k1;
+mod util;
 
 #[macro_use]
 mod derive;

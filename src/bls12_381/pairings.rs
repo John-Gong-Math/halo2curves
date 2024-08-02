@@ -780,7 +780,7 @@ impl PairingCurveAffine for G2Affine {
 pub struct Bls12;
 
 impl Engine for Bls12 {
-    type Scalar = Scalar;
+    type Fr = Scalar;
     type G1 = G1Projective;
     type G1Affine = G1Affine;
     type G2 = G2Projective;

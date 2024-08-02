@@ -5,15 +5,15 @@ pub mod hash_to_curve;
 pub mod msm;
 pub mod serde;
 
+pub mod bls12_381;
 pub mod bn256;
 pub mod grumpkin;
+pub mod jubjub;
 pub mod pasta;
 pub mod pluto_eris;
 pub mod secp256k1;
 pub mod secp256r1;
 pub mod secq256k1;
-pub mod bls12_381;
-pub mod jubjub;
 mod util;
 
 #[macro_use]

@@ -3,7 +3,7 @@
 
 use core::convert::TryInto;
 use core::fmt;
-use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub};
+use core::ops::{Add, Mul, MulAssign, Neg, Sub};
 
 use ff::{Field, FieldBits, PrimeField, PrimeFieldBits, WithSmallOrderMulGroup};
 use rand_core::RngCore;
@@ -772,461 +772,471 @@ impl PrimeFieldBits for Fr {
     }
 }
 
-#[test]
-fn test_constants() {
-    assert_eq!(
-        Fr::MODULUS,
-        "0x0e7db4ea6533afa906673b0101343b00a6682093ccc81082d0970e5ed6f72cb7",
-    );
-
-    assert_eq!(Fr::from(2) * Fr::TWO_INV, Fr::ONE);
-
-    assert_eq!(Fr::ROOT_OF_UNITY * Fr::ROOT_OF_UNITY_INV, Fr::ONE);
-
-    // ROOT_OF_UNITY^{2^s} mod m == 1
-    assert_eq!(Fr::ROOT_OF_UNITY.pow(&[1u64 << Fr::S, 0, 0, 0]), Fr::ONE);
-
-    // DELTA^{t} mod m == 1
-    assert_eq!(
-        Fr::DELTA.pow(&[
-            0x684b_872f_6b7b_965b,
-            0x5334_1049_e664_0841,
-            0x8333_9d80_809a_1d80,
-            0x073e_da75_3299_d7d4,
-        ]),
-        Fr::ONE,
-    );
-}
-
-#[test]
-fn test_inv() {
-    // Compute -(r^{-1} mod 2^64) mod 2^64 by exponentiating
-    // by totient(2**64) - 1
-
-    let mut inv = 1u64;
-    for _ in 0..63 {
-        inv = inv.wrapping_mul(inv);
-        inv = inv.wrapping_mul(MODULUS.0[0]);
-    }
-    inv = inv.wrapping_neg();
-
-    assert_eq!(inv, INV);
-}
-
-#[test]
-fn test_debug() {
-    assert_eq!(
-        format!("{:?}", Fr::zero()),
-        "0x0000000000000000000000000000000000000000000000000000000000000000"
-    );
-    assert_eq!(
-        format!("{:?}", Fr::one()),
-        "0x0000000000000000000000000000000000000000000000000000000000000001"
-    );
-    assert_eq!(
-        format!("{:?}", R2),
-        "0x09a6fc6f479155c6932514eeeb8814f4f315d62f66b6e75025f80bb3b99607d9"
-    );
-}
-
-#[allow(clippy::eq_op)]
-#[test]
-fn test_equality() {
-    assert_eq!(Fr::zero(), Fr::zero());
-    assert_eq!(Fr::one(), Fr::one());
-    assert_eq!(R2, R2);
-
-    assert!(Fr::zero() != Fr::one());
-    assert!(Fr::one() != R2);
-}
-
-#[test]
-fn test_to_bytes() {
-    assert_eq!(
-        Fr::zero().to_bytes(),
-        [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0
-        ]
-    );
-
-    assert_eq!(
-        Fr::one().to_bytes(),
-        [
-            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0
-        ]
-    );
-
-    assert_eq!(
-        R2.to_bytes(),
-        [
-            217, 7, 150, 185, 179, 11, 248, 37, 80, 231, 182, 102, 47, 214, 21, 243, 244, 20, 136,
-            235, 238, 20, 37, 147, 198, 85, 145, 71, 111, 252, 166, 9
-        ]
-    );
-
-    assert_eq!(
-        (-&Fr::one()).to_bytes(),
-        [
-            182, 44, 247, 214, 94, 14, 151, 208, 130, 16, 200, 204, 147, 32, 104, 166, 0, 59, 52,
-            1, 1, 59, 103, 6, 169, 175, 51, 101, 234, 180, 125, 14
-        ]
-    );
-}
-
-#[test]
-fn test_from_bytes() {
-    assert_eq!(
-        Fr::from_bytes(&[
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0
-        ])
-        .unwrap(),
-        Fr::zero()
-    );
-
-    assert_eq!(
-        Fr::from_bytes(&[
-            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0
-        ])
-        .unwrap(),
-        Fr::one()
-    );
-
-    assert_eq!(
-        Fr::from_bytes(&[
-            217, 7, 150, 185, 179, 11, 248, 37, 80, 231, 182, 102, 47, 214, 21, 243, 244, 20, 136,
-            235, 238, 20, 37, 147, 198, 85, 145, 71, 111, 252, 166, 9
-        ])
-        .unwrap(),
-        R2
-    );
-
-    // -1 should work
-    assert!(bool::from(
-        Fr::from_bytes(&[
-            182, 44, 247, 214, 94, 14, 151, 208, 130, 16, 200, 204, 147, 32, 104, 166, 0, 59, 52,
-            1, 1, 59, 103, 6, 169, 175, 51, 101, 234, 180, 125, 14
-        ])
-        .is_some()
-    ));
-
-    // modulus is invalid
-    assert!(bool::from(
-        Fr::from_bytes(&[
-            183, 44, 247, 214, 94, 14, 151, 208, 130, 16, 200, 204, 147, 32, 104, 166, 0, 59, 52,
-            1, 1, 59, 103, 6, 169, 175, 51, 101, 234, 180, 125, 14
-        ])
-        .is_none()
-    ));
-
-    // Anything larger than the modulus is invalid
-    assert!(bool::from(
-        Fr::from_bytes(&[
-            184, 44, 247, 214, 94, 14, 151, 208, 130, 16, 200, 204, 147, 32, 104, 166, 0, 59, 52,
-            1, 1, 59, 103, 6, 169, 175, 51, 101, 234, 180, 125, 14
-        ])
-        .is_none()
-    ));
-
-    assert!(bool::from(
-        Fr::from_bytes(&[
-            183, 44, 247, 214, 94, 14, 151, 208, 130, 16, 200, 204, 147, 32, 104, 166, 0, 59, 52,
-            1, 1, 59, 104, 6, 169, 175, 51, 101, 234, 180, 125, 14
-        ])
-        .is_none()
-    ));
-
-    assert!(bool::from(
-        Fr::from_bytes(&[
-            183, 44, 247, 214, 94, 14, 151, 208, 130, 16, 200, 204, 147, 32, 104, 166, 0, 59, 52,
-            1, 1, 59, 103, 6, 169, 175, 51, 101, 234, 180, 125, 15
-        ])
-        .is_none()
-    ));
-}
-
-#[test]
-fn test_from_u512_zero() {
-    assert_eq!(
-        Fr::zero(),
-        Fr::from_u512([
-            MODULUS.0[0],
-            MODULUS.0[1],
-            MODULUS.0[2],
-            MODULUS.0[3],
-            0,
-            0,
-            0,
-            0
-        ])
-    );
-}
-
-#[test]
-fn test_from_u512_r() {
-    assert_eq!(R, Fr::from_u512([1, 0, 0, 0, 0, 0, 0, 0]));
-}
-
-#[test]
-fn test_from_u512_r2() {
-    assert_eq!(R2, Fr::from_u512([0, 0, 0, 0, 1, 0, 0, 0]));
-}
-
-#[test]
-fn test_from_u512_max() {
-    let max_u64 = 0xffff_ffff_ffff_ffff;
-    assert_eq!(
-        R3 - R,
-        Fr::from_u512([max_u64, max_u64, max_u64, max_u64, max_u64, max_u64, max_u64, max_u64])
-    );
-}
-
-#[test]
-fn test_from_bytes_wide_r2() {
-    assert_eq!(
-        R2,
-        Fr::from_bytes_wide(&[
-            217, 7, 150, 185, 179, 11, 248, 37, 80, 231, 182, 102, 47, 214, 21, 243, 244, 20, 136,
-            235, 238, 20, 37, 147, 198, 85, 145, 71, 111, 252, 166, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ])
-    );
-}
-
-#[test]
-fn test_from_bytes_wide_negative_one() {
-    assert_eq!(
-        -&Fr::one(),
-        Fr::from_bytes_wide(&[
-            182, 44, 247, 214, 94, 14, 151, 208, 130, 16, 200, 204, 147, 32, 104, 166, 0, 59, 52,
-            1, 1, 59, 103, 6, 169, 175, 51, 101, 234, 180, 125, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ])
-    );
-}
-
-#[test]
-fn test_from_bytes_wide_maximum() {
-    assert_eq!(
-        Fr([
-            0x8b75_c901_5ae4_2a22,
-            0xe590_82e7_bf9e_38b8,
-            0x6440_c912_61da_51b3,
-            0x0a5e_07ff_b209_91cf,
-        ]),
-        Fr::from_bytes_wide(&[0xff; 64])
-    );
-}
-
-#[test]
-fn test_zero() {
-    assert_eq!(Fr::zero(), -&Fr::zero());
-    assert_eq!(Fr::zero(), Fr::zero() + Fr::zero());
-    assert_eq!(Fr::zero(), Fr::zero() - Fr::zero());
-    assert_eq!(Fr::zero(), Fr::zero() * Fr::zero());
-}
-
 #[cfg(test)]
-const LARGEST: Fr = Fr([
-    0xd097_0e5e_d6f7_2cb6,
-    0xa668_2093_ccc8_1082,
-    0x0667_3b01_0134_3b00,
-    0x0e7d_b4ea_6533_afa9,
-]);
+pub(crate) mod tests {
 
-#[test]
-fn test_addition() {
-    let mut tmp = LARGEST;
-    tmp += &LARGEST;
+    use super::*;
+    use std::ops::AddAssign;
 
-    assert_eq!(
-        tmp,
-        Fr([
-            0xd097_0e5e_d6f7_2cb5,
-            0xa668_2093_ccc8_1082,
-            0x0667_3b01_0134_3b00,
-            0x0e7d_b4ea_6533_afa9
-        ])
-    );
+    use core::ops::MulAssign;
 
-    let mut tmp = LARGEST;
-    tmp += &Fr([1, 0, 0, 0]);
+    use ff::{Field, PrimeField};
+    #[test]
+    fn test_constants() {
+        assert_eq!(
+            Fr::MODULUS,
+            "0x0e7db4ea6533afa906673b0101343b00a6682093ccc81082d0970e5ed6f72cb7",
+        );
 
-    assert_eq!(tmp, Fr::zero());
-}
+        assert_eq!(Fr::from(2) * Fr::TWO_INV, Fr::ONE);
 
-#[test]
-fn test_negation() {
-    let tmp = -&LARGEST;
+        assert_eq!(Fr::ROOT_OF_UNITY * Fr::ROOT_OF_UNITY_INV, Fr::ONE);
 
-    assert_eq!(tmp, Fr([1, 0, 0, 0]));
+        // ROOT_OF_UNITY^{2^s} mod m == 1
+        assert_eq!(Fr::ROOT_OF_UNITY.pow(&[1u64 << Fr::S, 0, 0, 0]), Fr::ONE);
 
-    let tmp = -&Fr::zero();
-    assert_eq!(tmp, Fr::zero());
-    let tmp = -&Fr([1, 0, 0, 0]);
-    assert_eq!(tmp, LARGEST);
-}
+        // DELTA^{t} mod m == 1
+        assert_eq!(
+            Fr::DELTA.pow(&[
+                0x684b_872f_6b7b_965b,
+                0x5334_1049_e664_0841,
+                0x8333_9d80_809a_1d80,
+                0x073e_da75_3299_d7d4,
+            ]),
+            Fr::ONE,
+        );
+    }
 
-#[test]
-fn test_subtraction() {
-    let mut tmp = LARGEST;
-    tmp -= &LARGEST;
+    #[test]
+    fn test_inv() {
+        // Compute -(r^{-1} mod 2^64) mod 2^64 by exponentiating
+        // by totient(2**64) - 1
 
-    assert_eq!(tmp, Fr::zero());
-
-    let mut tmp = Fr::zero();
-    tmp -= &LARGEST;
-
-    let mut tmp2 = MODULUS;
-    tmp2 -= &LARGEST;
-
-    assert_eq!(tmp, tmp2);
-}
-
-#[test]
-fn test_multiplication() {
-    let mut cur = LARGEST;
-
-    for _ in 0..100 {
-        let mut tmp = cur;
-        tmp *= &cur;
-
-        let mut tmp2 = Fr::zero();
-        for b in cur
-            .to_bytes()
-            .iter()
-            .rev()
-            .flat_map(|byte| (0..8).rev().map(move |i| ((byte >> i) & 1u8) == 1u8))
-        {
-            let tmp3 = tmp2;
-            tmp2.add_assign(&tmp3);
-
-            if b {
-                tmp2.add_assign(&cur);
-            }
+        let mut inv = 1u64;
+        for _ in 0..63 {
+            inv = inv.wrapping_mul(inv);
+            inv = inv.wrapping_mul(MODULUS.0[0]);
         }
+        inv = inv.wrapping_neg();
 
-        assert_eq!(tmp, tmp2);
-
-        cur.add_assign(&LARGEST);
+        assert_eq!(inv, INV);
     }
-}
 
-#[test]
-fn test_squaring() {
-    let mut cur = LARGEST;
-
-    for _ in 0..100 {
-        let mut tmp = cur;
-        tmp = tmp.square();
-
-        let mut tmp2 = Fr::zero();
-        for b in cur
-            .to_bytes()
-            .iter()
-            .rev()
-            .flat_map(|byte| (0..8).rev().map(move |i| ((byte >> i) & 1u8) == 1u8))
-        {
-            let tmp3 = tmp2;
-            tmp2.add_assign(&tmp3);
-
-            if b {
-                tmp2.add_assign(&cur);
-            }
-        }
-
-        assert_eq!(tmp, tmp2);
-
-        cur.add_assign(&LARGEST);
+    #[test]
+    fn test_debug() {
+        assert_eq!(
+            format!("{:?}", Fr::zero()),
+            "0x0000000000000000000000000000000000000000000000000000000000000000"
+        );
+        assert_eq!(
+            format!("{:?}", Fr::one()),
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+        );
+        assert_eq!(
+            format!("{:?}", R2),
+            "0x09a6fc6f479155c6932514eeeb8814f4f315d62f66b6e75025f80bb3b99607d9"
+        );
     }
-}
 
-#[test]
-fn test_inversion() {
-    assert!(bool::from(Fr::zero().invert().is_none()));
-    assert_eq!(Fr::one().invert().unwrap(), Fr::one());
-    assert_eq!((-&Fr::one()).invert().unwrap(), -&Fr::one());
+    #[allow(clippy::eq_op)]
+    #[test]
+    fn test_equality() {
+        assert_eq!(Fr::zero(), Fr::zero());
+        assert_eq!(Fr::one(), Fr::one());
+        assert_eq!(R2, R2);
 
-    let mut tmp = R2;
-
-    for _ in 0..100 {
-        let mut tmp2 = tmp.invert().unwrap();
-        tmp2.mul_assign(&tmp);
-
-        assert_eq!(tmp2, Fr::one());
-
-        tmp.add_assign(&R2);
+        assert!(Fr::zero() != Fr::one());
+        assert!(Fr::one() != R2);
     }
-}
 
-#[test]
-fn test_invert_is_pow() {
-    let r_minus_2 = [
-        0xd097_0e5e_d6f7_2cb5,
-        0xa668_2093_ccc8_1082,
-        0x0667_3b01_0134_3b00,
-        0x0e7d_b4ea_6533_afa9,
-    ];
+    #[test]
+    fn test_to_bytes() {
+        assert_eq!(
+            Fr::zero().to_bytes(),
+            [
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0
+            ]
+        );
 
-    let mut r1 = R;
-    let mut r2 = R;
-    let mut r3 = R;
+        assert_eq!(
+            Fr::one().to_bytes(),
+            [
+                1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0
+            ]
+        );
 
-    for _ in 0..100 {
-        r1 = r1.invert().unwrap();
-        r2 = r2.pow_vartime(&r_minus_2);
-        r3 = r3.pow(&r_minus_2);
+        assert_eq!(
+            R2.to_bytes(),
+            [
+                217, 7, 150, 185, 179, 11, 248, 37, 80, 231, 182, 102, 47, 214, 21, 243, 244, 20,
+                136, 235, 238, 20, 37, 147, 198, 85, 145, 71, 111, 252, 166, 9
+            ]
+        );
 
-        assert_eq!(r1, r2);
-        assert_eq!(r2, r3);
-        // Add R so we check something different next time around
-        r1.add_assign(&R);
-        r2 = r1;
-        r3 = r1;
+        assert_eq!(
+            (-&Fr::one()).to_bytes(),
+            [
+                182, 44, 247, 214, 94, 14, 151, 208, 130, 16, 200, 204, 147, 32, 104, 166, 0, 59,
+                52, 1, 1, 59, 103, 6, 169, 175, 51, 101, 234, 180, 125, 14
+            ]
+        );
     }
-}
 
-#[test]
-fn test_sqrt() {
-    let mut square = Fr([
-        // r - 2
-        0xd097_0e5e_d6f7_2cb5,
+    #[test]
+    fn test_from_bytes() {
+        assert_eq!(
+            Fr::from_bytes(&[
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0
+            ])
+            .unwrap(),
+            Fr::zero()
+        );
+
+        assert_eq!(
+            Fr::from_bytes(&[
+                1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0
+            ])
+            .unwrap(),
+            Fr::one()
+        );
+
+        assert_eq!(
+            Fr::from_bytes(&[
+                217, 7, 150, 185, 179, 11, 248, 37, 80, 231, 182, 102, 47, 214, 21, 243, 244, 20,
+                136, 235, 238, 20, 37, 147, 198, 85, 145, 71, 111, 252, 166, 9
+            ])
+            .unwrap(),
+            R2
+        );
+
+        // -1 should work
+        assert!(bool::from(
+            Fr::from_bytes(&[
+                182, 44, 247, 214, 94, 14, 151, 208, 130, 16, 200, 204, 147, 32, 104, 166, 0, 59,
+                52, 1, 1, 59, 103, 6, 169, 175, 51, 101, 234, 180, 125, 14
+            ])
+            .is_some()
+        ));
+
+        // modulus is invalid
+        assert!(bool::from(
+            Fr::from_bytes(&[
+                183, 44, 247, 214, 94, 14, 151, 208, 130, 16, 200, 204, 147, 32, 104, 166, 0, 59,
+                52, 1, 1, 59, 103, 6, 169, 175, 51, 101, 234, 180, 125, 14
+            ])
+            .is_none()
+        ));
+
+        // Anything larger than the modulus is invalid
+        assert!(bool::from(
+            Fr::from_bytes(&[
+                184, 44, 247, 214, 94, 14, 151, 208, 130, 16, 200, 204, 147, 32, 104, 166, 0, 59,
+                52, 1, 1, 59, 103, 6, 169, 175, 51, 101, 234, 180, 125, 14
+            ])
+            .is_none()
+        ));
+
+        assert!(bool::from(
+            Fr::from_bytes(&[
+                183, 44, 247, 214, 94, 14, 151, 208, 130, 16, 200, 204, 147, 32, 104, 166, 0, 59,
+                52, 1, 1, 59, 104, 6, 169, 175, 51, 101, 234, 180, 125, 14
+            ])
+            .is_none()
+        ));
+
+        assert!(bool::from(
+            Fr::from_bytes(&[
+                183, 44, 247, 214, 94, 14, 151, 208, 130, 16, 200, 204, 147, 32, 104, 166, 0, 59,
+                52, 1, 1, 59, 103, 6, 169, 175, 51, 101, 234, 180, 125, 15
+            ])
+            .is_none()
+        ));
+    }
+
+    #[test]
+    fn test_from_u512_zero() {
+        assert_eq!(
+            Fr::zero(),
+            Fr::from_u512([
+                MODULUS.0[0],
+                MODULUS.0[1],
+                MODULUS.0[2],
+                MODULUS.0[3],
+                0,
+                0,
+                0,
+                0
+            ])
+        );
+    }
+
+    #[test]
+    fn test_from_u512_r() {
+        assert_eq!(R, Fr::from_u512([1, 0, 0, 0, 0, 0, 0, 0]));
+    }
+
+    #[test]
+    fn test_from_u512_r2() {
+        assert_eq!(R2, Fr::from_u512([0, 0, 0, 0, 1, 0, 0, 0]));
+    }
+
+    #[test]
+    fn test_from_u512_max() {
+        let max_u64 = 0xffff_ffff_ffff_ffff;
+        assert_eq!(
+            R3 - R,
+            Fr::from_u512([max_u64, max_u64, max_u64, max_u64, max_u64, max_u64, max_u64, max_u64])
+        );
+    }
+
+    #[test]
+    fn test_from_bytes_wide_r2() {
+        assert_eq!(
+            R2,
+            Fr::from_bytes_wide(&[
+                217, 7, 150, 185, 179, 11, 248, 37, 80, 231, 182, 102, 47, 214, 21, 243, 244, 20,
+                136, 235, 238, 20, 37, 147, 198, 85, 145, 71, 111, 252, 166, 9, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ])
+        );
+    }
+
+    #[test]
+    fn test_from_bytes_wide_negative_one() {
+        assert_eq!(
+            -&Fr::one(),
+            Fr::from_bytes_wide(&[
+                182, 44, 247, 214, 94, 14, 151, 208, 130, 16, 200, 204, 147, 32, 104, 166, 0, 59,
+                52, 1, 1, 59, 103, 6, 169, 175, 51, 101, 234, 180, 125, 14, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ])
+        );
+    }
+
+    #[test]
+    fn test_from_bytes_wide_maximum() {
+        assert_eq!(
+            Fr([
+                0x8b75_c901_5ae4_2a22,
+                0xe590_82e7_bf9e_38b8,
+                0x6440_c912_61da_51b3,
+                0x0a5e_07ff_b209_91cf,
+            ]),
+            Fr::from_bytes_wide(&[0xff; 64])
+        );
+    }
+
+    #[test]
+    fn test_zero() {
+        assert_eq!(Fr::zero(), -&Fr::zero());
+        assert_eq!(Fr::zero(), Fr::zero() + Fr::zero());
+        assert_eq!(Fr::zero(), Fr::zero() - Fr::zero());
+        assert_eq!(Fr::zero(), Fr::zero() * Fr::zero());
+    }
+
+    #[cfg(test)]
+    const LARGEST: Fr = Fr([
+        0xd097_0e5e_d6f7_2cb6,
         0xa668_2093_ccc8_1082,
         0x0667_3b01_0134_3b00,
         0x0e7d_b4ea_6533_afa9,
     ]);
 
-    let mut none_count = 0;
+    #[test]
+    fn test_addition() {
+        let mut tmp = LARGEST;
+        tmp += &LARGEST;
 
-    for _ in 0..100 {
-        let square_root = square.sqrt();
-        if bool::from(square_root.is_none()) {
-            none_count += 1;
-        } else {
-            assert_eq!(square_root.unwrap() * square_root.unwrap(), square);
-        }
-        square -= Fr::one();
+        assert_eq!(
+            tmp,
+            Fr([
+                0xd097_0e5e_d6f7_2cb5,
+                0xa668_2093_ccc8_1082,
+                0x0667_3b01_0134_3b00,
+                0x0e7d_b4ea_6533_afa9
+            ])
+        );
+
+        let mut tmp = LARGEST;
+        tmp += &Fr([1, 0, 0, 0]);
+
+        assert_eq!(tmp, Fr::zero());
     }
 
-    assert_eq!(47, none_count);
-}
+    #[test]
+    fn test_negation() {
+        let tmp = -&LARGEST;
 
-#[test]
-fn test_from_raw() {
-    assert_eq!(
-        Fr::from_raw([
-            0x25f8_0bb3_b996_07d8,
-            0xf315_d62f_66b6_e750,
-            0x9325_14ee_eb88_14f4,
-            0x09a6_fc6f_4791_55c6,
-        ]),
-        Fr::from_raw([0xffff_ffff_ffff_ffff; 4])
-    );
+        assert_eq!(tmp, Fr([1, 0, 0, 0]));
 
-    assert_eq!(Fr::from_raw(MODULUS.0), Fr::zero());
+        let tmp = -&Fr::zero();
+        assert_eq!(tmp, Fr::zero());
+        let tmp = -&Fr([1, 0, 0, 0]);
+        assert_eq!(tmp, LARGEST);
+    }
 
-    assert_eq!(Fr::from_raw([1, 0, 0, 0]), R);
+    #[test]
+    fn test_subtraction() {
+        let mut tmp = LARGEST;
+        tmp -= &LARGEST;
+
+        assert_eq!(tmp, Fr::zero());
+
+        let mut tmp = Fr::zero();
+        tmp -= &LARGEST;
+
+        let mut tmp2 = MODULUS;
+        tmp2 -= &LARGEST;
+
+        assert_eq!(tmp, tmp2);
+    }
+
+    #[test]
+    fn test_multiplication() {
+        let mut cur = LARGEST;
+
+        for _ in 0..100 {
+            let mut tmp = cur;
+            tmp *= &cur;
+
+            let mut tmp2 = Fr::zero();
+            for b in cur
+                .to_bytes()
+                .iter()
+                .rev()
+                .flat_map(|byte| (0..8).rev().map(move |i| ((byte >> i) & 1u8) == 1u8))
+            {
+                let tmp3 = tmp2;
+                tmp2.add_assign(&tmp3);
+
+                if b {
+                    tmp2.add_assign(&cur);
+                }
+            }
+
+            assert_eq!(tmp, tmp2);
+
+            cur.add_assign(&LARGEST);
+        }
+    }
+
+    #[test]
+    fn test_squaring() {
+        let mut cur = LARGEST;
+
+        for _ in 0..100 {
+            let mut tmp = cur;
+            tmp = tmp.square();
+
+            let mut tmp2 = Fr::zero();
+            for b in cur
+                .to_bytes()
+                .iter()
+                .rev()
+                .flat_map(|byte| (0..8).rev().map(move |i| ((byte >> i) & 1u8) == 1u8))
+            {
+                let tmp3 = tmp2;
+                tmp2.add_assign(&tmp3);
+
+                if b {
+                    tmp2.add_assign(&cur);
+                }
+            }
+
+            assert_eq!(tmp, tmp2);
+
+            cur.add_assign(&LARGEST);
+        }
+    }
+
+    #[test]
+    fn test_inversion() {
+        assert!(bool::from(Fr::zero().invert().is_none()));
+        assert_eq!(Fr::one().invert().unwrap(), Fr::one());
+        assert_eq!((-&Fr::one()).invert().unwrap(), -&Fr::one());
+
+        let mut tmp = R2;
+
+        for _ in 0..100 {
+            let mut tmp2 = tmp.invert().unwrap();
+            tmp2.mul_assign(&tmp);
+
+            assert_eq!(tmp2, Fr::one());
+
+            tmp.add_assign(&R2);
+        }
+    }
+
+    #[test]
+    fn test_invert_is_pow() {
+        let r_minus_2 = [
+            0xd097_0e5e_d6f7_2cb5,
+            0xa668_2093_ccc8_1082,
+            0x0667_3b01_0134_3b00,
+            0x0e7d_b4ea_6533_afa9,
+        ];
+
+        let mut r1 = R;
+        let mut r2 = R;
+        let mut r3 = R;
+
+        for _ in 0..100 {
+            r1 = r1.invert().unwrap();
+            r2 = r2.pow_vartime(&r_minus_2);
+            r3 = r3.pow(&r_minus_2);
+
+            assert_eq!(r1, r2);
+            assert_eq!(r2, r3);
+            // Add R so we check something different next time around
+            r1.add_assign(&R);
+            r2 = r1;
+            r3 = r1;
+        }
+    }
+
+    #[test]
+    fn test_sqrt() {
+        let mut square = Fr([
+            // r - 2
+            0xd097_0e5e_d6f7_2cb5,
+            0xa668_2093_ccc8_1082,
+            0x0667_3b01_0134_3b00,
+            0x0e7d_b4ea_6533_afa9,
+        ]);
+
+        let mut none_count = 0;
+
+        for _ in 0..100 {
+            let square_root = square.sqrt();
+            if bool::from(square_root.is_none()) {
+                none_count += 1;
+            } else {
+                assert_eq!(square_root.unwrap() * square_root.unwrap(), square);
+            }
+            square -= Fr::one();
+        }
+
+        assert_eq!(47, none_count);
+    }
+
+    #[test]
+    fn test_from_raw() {
+        assert_eq!(
+            Fr::from_raw([
+                0x25f8_0bb3_b996_07d8,
+                0xf315_d62f_66b6_e750,
+                0x9325_14ee_eb88_14f4,
+                0x09a6_fc6f_4791_55c6,
+            ]),
+            Fr::from_raw([0xffff_ffff_ffff_ffff; 4])
+        );
+
+        assert_eq!(Fr::from_raw(MODULUS.0), Fr::zero());
+
+        assert_eq!(Fr::from_raw([1, 0, 0, 0]), R);
+    }
 }

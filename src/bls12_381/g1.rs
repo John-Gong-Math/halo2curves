@@ -32,6 +32,7 @@ new_curve_impl!(
     Fp,
     Scalar,
     (G1_GENERATOR_X, G1_GENERATOR_Y),
+    G1_A,
     G1_B,
     "bls12_381_g1",
     |_, _| unimplemented!(),
@@ -54,6 +55,8 @@ const G1_GENERATOR_Y: Fp = Fp::from_raw_unchecked([
     0x0e1c_8c3f_ad00_59c0,
     0x0bbc_3efc_5008_a26a,
 ]);
+
+const G1_A: Fp = Fp::ZERO;
 
 const G1_B: Fp = Fp::from_raw_unchecked([
     0xaa27_0000_000c_fff3,

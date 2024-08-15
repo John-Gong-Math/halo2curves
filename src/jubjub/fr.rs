@@ -81,7 +81,7 @@ pub const MODULUS: Fr = Fr([
 ]);
 
 // The number of bits needed to represent the modulus.
-const MODULUS_BITS: u32 = 252;
+const MODULUS_BITS: u32 = 255;
 
 /// 2^-1
 const TWO_INV: Fr = Fr([
